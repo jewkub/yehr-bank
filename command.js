@@ -14,15 +14,23 @@ class Command {
   constructor(db) {
     let self = this;
     self.db = db;
+    db.collection('users').where('role', '==', 'admin').get()
+    .then(snapshot => {
+      Command.admin = snapshot.docs;
+    })
   }
 
   static handleError(err) {
-    console.log(err);
-    Command.sendText(id.jew, err);
-    Command.sendText(id.book, err);
+    console.log(err.toString());
+    Command.admin.forEach((e, i, arr) => {
+      Command.sendText(e.get('id'), err, err => {
+        console.log('cant send error!');
+        console.log(err.toString());
+      });
+    });
   }
 
-  static sendText(to, text) {
+  static sendText(to, text, handle, replyToken) {
     let data = {
       to: to,
       messages: [
@@ -32,38 +40,40 @@ class Command {
         }
       ]
     }
+    if (replyToken) {
+      delete data.to;
+      data.replyToken = replyToken;
+    }
     return rp({
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ***REMOVED***'
       },
-      url: 'https://api.line.me/v2/bot/message/push',
+      url: 'https://api.line.me/v2/bot/message/' + (replyToken ? 'reply' : 'push'),
       method: 'POST',
       body: data,
       json: true
-    })
-    .catch(Command.handleError);
+    }).catch(handle || Command.handleError);
   }
 
   static reportMoney(name, money, point) {
-    if(point === undefined) return name + ': ' + money.toFixed(0);
+    if (!point) return name + ': ' + money.toFixed(0);
     return name + ': ' + money.toFixed(+point);
   }
 
-  listAll() {
+  listAll(replyToken) {
     let query = this.db.collection('users').orderBy('money', 'desc').get()
       .then(snapshot => {
         let text = '';
         snapshot.docs.forEach(e => {
           if(e.get('hide')) return ;
-          text += Command.reportMoney(e.get('name'), e.get('money'), 2) + '\n';
+          text += Command.reportMoney(e.get('name'), e.get('money')) + '\n';
         });
-        Command.sendText(mygroup, text.slice(0, -1));
-      })
-      .catch(Command.handleError);
+        Command.sendText(mygroup, text.slice(0, -1), null, replyToken);
+      }).catch(Command.handleError);
   }
 
-  add(who, amount) {
+  add(who, amount, replyToken) {
     let query = this.db.collection('users').where('abb', '==', who).get()
       .then(snapshot => {
         if (snapshot.empty) throw new Error('No subject data: ' + who);
@@ -73,12 +83,11 @@ class Command {
         if(isNaN(currentMoney)) throw new Error('Sum is NaN');
         if(currentMoney < 0) throw new Error('Sum(' + currentMoney + ') can\'t be < 0');
         this.db.doc(snapshot.docs[0].ref.path).update({money: currentMoney});
-        Command.sendText(mygroup, Command.reportMoney(snapshot.docs[0].get('name'), currentMoney));
-      })
-      .catch(Command.handleError);
+        Command.sendText(mygroup, Command.reportMoney(snapshot.docs[0].get('name'), currentMoney), null, replyToken);
+      }).catch(Command.handleError);
   }
 
-  transfer(who, to, amount) {
+  transfer(who, to, amount, replyToken) {
     let query = this.db.collection('users').where('abb', '==', who).get()
       .then(snapshot => {
         if (snapshot.empty) throw new Error('No giver\'s data: ' + who);
@@ -94,12 +103,11 @@ class Command {
         if(who.get('money') < amount) throw new Error('giver\'s money(' + who.get('money') + ') can\'t be < amount(' + amount + ')');
         this.db.doc(who.ref.path).update({money: who.get('money') - amount});
         this.db.doc(to.ref.path).update({money: to.get('money') + amount});
-        Command.sendText(mygroup, Command.reportMoney(who.get('name'), (who.get('money') - amount)) + '\n' + Command.reportMoney(to.get('name'), (to.get('money') + amount)));
-      })
-      .catch(Command.handleError);
+        Command.sendText(mygroup, Command.reportMoney(who.get('name'), (who.get('money') - amount)) + '\n' + Command.reportMoney(to.get('name'), (to.get('money') + amount)), null, replyToken);
+      }).catch(Command.handleError);
   }
 
-  async share(host, member, amount) {
+  async share(host, member, amount, replyToken) {
     let snapshot = await this.db.collection('users').where('abb', '==', host).get();
     if (snapshot.empty) throw new Error('No host\'s data: ' + host);
     if (snapshot.docs.length > 1) throw new Error('Duplicated host data: ' + host);
@@ -122,10 +130,10 @@ class Command {
     }
     await host.ref.update({money: host.get('money') + calc * member.length});
     text += Command.reportMoney(host.get('name'), host.get('money') + calc * member.length);
-    await Command.sendText(mygroup, text);
+    await Command.sendText(mygroup, text, null, replyToken);
   }
 
-  async unShare(host, member, amount) {
+  async unShare(host, member, amount, replyToken) {
     let snapshot = await this.db.collection('users').where('abb', '==', host).get();
     if (snapshot.empty) throw new Error('No host\'s data: ' + host);
     if (snapshot.docs.length > 1) throw new Error('Duplicated host data: ' + host);
@@ -149,17 +157,17 @@ class Command {
     }
     await host.ref.update({money: host.get('money') - calc * member.length});
     text += Command.reportMoney(host.get('name'), host.get('money') - calc * member.length);
-    await Command.sendText(mygroup, text);
+    await Command.sendText(mygroup, text, null, replyToken);
   }
 
-  async set(who, value) {
+  async set(who, value, replyToken) {
     let snapshot = await this.db.collection('users').where('abb', '==', who).get();
     if (snapshot.empty) throw new Error('No subject data: ' + who);
     if (snapshot.docs.length > 1) throw new Error('Duplicated data: ' + who);
     if(isNaN(value)) throw new Error('Value is NaN');
     if(value < 0) throw new Error('value can\'t be < 0');
     await snapshot.docs[0].ref.update({money: value});
-    await Command.sendText(mygroup, Command.reportMoney(snapshot.docs[0].get('name'), value));
+    await Command.sendText(mygroup, Command.reportMoney(snapshot.docs[0].get('name'), value), null, replyToken);
   }
 };
 
