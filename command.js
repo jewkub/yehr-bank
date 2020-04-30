@@ -47,7 +47,7 @@ class Command {
     return rp({
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ***REMOVED***'
+        'Authorization': 'Bearer ' + require('./secret/secret.json').line.token,
       },
       url: 'https://api.line.me/v2/bot/message/' + (replyToken ? 'reply' : 'push'),
       method: 'POST',
