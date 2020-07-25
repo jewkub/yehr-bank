@@ -17,9 +17,6 @@ app.use(bodyParser.urlencoded({ extended: false }));
 // parse application/json
 app.use(bodyParser.json());
 
-let name = require(path.join(__dirname, 'name.json'));
-let role = require(path.join(__dirname, 'role.json'));
-
 let Command = require(path.join(__dirname, 'command.js'));
 command = new Command(db);
 

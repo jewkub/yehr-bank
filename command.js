@@ -2,11 +2,6 @@ const rp = require('request-promise');
 const path = require('path');
 const _ = require('underscore');
 
-/* let name = require(path.join(__dirname, 'name.json'));
-let id = _.invert(name);
-
-let role = require(path.join(__dirname, 'role.json')); */
-
 let myroom = 'Rd8dfbf9649866f65eb5a26a2c7660acd';
 let mygroup = 'C2b43bf38767fa6acaf01e5e1327d188f';
 
@@ -78,10 +73,9 @@ class Command {
       .then(snapshot => {
         if (snapshot.empty) throw new Error('No subject data: ' + who);
         if (snapshot.docs.length > 1) throw new Error('Duplicated data: ' + who);
-        // console.log(snapshot.docs[0].get('money'));
         let currentMoney = snapshot.docs[0].get('money') + amount;
         if(isNaN(currentMoney)) throw new Error('Sum is NaN');
-        if(currentMoney < 0) throw new Error('Sum(' + currentMoney + ') can\'t be < 0');
+        // if(currentMoney < 0) throw new Error('Sum(' + currentMoney + ') can\'t be < 0');
         this.db.doc(snapshot.docs[0].ref.path).update({money: currentMoney});
         Command.sendText(mygroup, Command.reportMoney(snapshot.docs[0].get('name'), currentMoney), null, replyToken);
       }).catch(Command.handleError);
@@ -100,7 +94,7 @@ class Command {
         if (snapshot.docs.length > 1) throw new Error('Duplicated receiver data: ' + to);
         to = snapshot.docs[0];
         if(isNaN(amount)) throw new Error('amount is NaN');
-        if(who.get('money') < amount) throw new Error('giver\'s money(' + who.get('money') + ') can\'t be < amount(' + amount + ')');
+        // if(who.get('money') < amount) throw new Error('giver\'s money(' + who.get('money') + ') can\'t be < amount(' + amount + ')');
         this.db.doc(who.ref.path).update({money: who.get('money') - amount});
         this.db.doc(to.ref.path).update({money: to.get('money') + amount});
         Command.sendText(mygroup, Command.reportMoney(who.get('name'), (who.get('money') - amount)) + '\n' + Command.reportMoney(to.get('name'), (to.get('money') + amount)), null, replyToken);
@@ -119,7 +113,7 @@ class Command {
       if (snapshot.empty) throw new Error('No member\'s data: ' + member[i]);
       if (snapshot.docs.length > 1) throw new Error('Duplicated member data: ' + member[i]);
       member[i] = snapshot.docs[0];
-      if(member[i].get('money') < calc) throw new Error('Member "' + member[i].get('name') + '" has ' + member[i].get('money') + ', can\'t pay ' + calc);
+      // if(member[i].get('money') < calc) throw new Error('Member "' + member[i].get('name') + '" has ' + member[i].get('money') + ', can\'t pay ' + calc);
     } // http://bit.ly/2Mn6dnD
 
     // no error, lets go
@@ -164,8 +158,8 @@ class Command {
     let snapshot = await this.db.collection('users').where('abb', '==', who).get();
     if (snapshot.empty) throw new Error('No subject data: ' + who);
     if (snapshot.docs.length > 1) throw new Error('Duplicated data: ' + who);
-    if(isNaN(value)) throw new Error('Value is NaN');
-    if(value < 0) throw new Error('value can\'t be < 0');
+    if (isNaN(value)) throw new Error('Value is NaN');
+    // if(value < 0) throw new Error('value can\'t be < 0');
     await snapshot.docs[0].ref.update({money: value});
     await Command.sendText(mygroup, Command.reportMoney(snapshot.docs[0].get('name'), value), null, replyToken);
   }
@@ -180,7 +174,7 @@ Object.getOwnPropertyNames(Command.prototype).filter(function (p) {
     try {
       await f.call(this, ...args);
     }
-    catch(err) {
+    catch (err) {
       Command.handleError(err);
     }
   };
